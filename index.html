@@ -484,54 +484,59 @@
       renderScoreboard();
     }
 
-    // ---------------------------
-    // Scoreboard with ranks (1st/2nd/3rd) and tie handling (1,1,3)
-    // ---------------------------
-    function computeRanksByTotal(playersArr) {
-      // Build sorted unique totals (desc)
-      const totals = playersArr.map(p => p.total);
-      const uniqueTotalsDesc = [...new Set(totals)].sort((a, b) => b - a);
+// ---------------------------
+// Scoreboard with rank emojis (🥇🥈🥉) and tie handling (1,1,3)
+// No emoji shown for players with 0 points
+// ---------------------------
+function computeRanksByTotal(playersArr) {
+  const totals = playersArr.map(p => p.total);
+  const uniqueTotalsDesc = [...new Set(totals)].sort((a, b) => b - a);
 
-      // Map total -> rank using "competition ranking": 1,1,3...
-      // rank = 1 + count of players with strictly higher totals
-      const rankByTotal = new Map();
-      for (const t of uniqueTotalsDesc) {
-        const higherCount = playersArr.filter(p => p.total > t).length;
-        rankByTotal.set(t, higherCount + 1);
-      }
-      return rankByTotal;
-    }
+  // competition ranking: 1,1,3...
+  const rankByTotal = new Map();
+  for (const t of uniqueTotalsDesc) {
+    const higherCount = playersArr.filter(p => p.total > t).length;
+    rankByTotal.set(t, higherCount + 1);
+  }
+  return rankByTotal;
+}
 
-    function rankSuffix(rank) {
-      if (rank === 1) return "1st";
-      if (rank === 2) return "2nd";
-      if (rank === 3) return "3rd";
-      return `${rank}th`;
-    }
+function rankEmoji(rank) {
+  if (rank === 1) return "🥇";
+  if (rank === 2) return "🥈";
+  if (rank === 3) return "🥉";
+  return "";
+}
 
-    function renderScoreboard() {
-      scoreboardBody.innerHTML = "";
-      const rankByTotal = computeRanksByTotal(players);
+function renderScoreboard() {
+  scoreboardBody.innerHTML = "";
+  const rankByTotal = computeRanksByTotal(players);
 
-      for (let i = 0; i < players.length; i++) {
-        const tr = document.createElement("tr");
-        const tdName = document.createElement("td");
-        const tdScore = document.createElement("td");
+  for (let i = 0; i < players.length; i++) {
+    const tr = document.createElement("tr");
+    const tdName = document.createElement("td");
+    const tdScore = document.createElement("td");
 
-        const rank = rankByTotal.get(players[i].total) ?? 0;
-        const top3 = rank >= 1 && rank <= 3;
+    const total = players[i].total;
+    const rank = rankByTotal.get(total) ?? 0;
 
-        // Plain text rank marker (no emoji characters)
-        const rankText = top3 ? ` (${rankSuffix(rank)})` : "";
+    // Only show emoji if:
+    // - rank is 1–3
+    // - player has more than 0 points
+    const emoji =
+      total > 0 && rank >= 1 && rank <= 3 ? rankEmoji(rank) + " " : "";
 
-        tdName.textContent = players[i].name + rankText + (i === currentPlayerIndex ? " (turn)" : "");
-        tdScore.textContent = String(players[i].total);
+    const turnText = i === currentPlayerIndex ? " (turn)" : "";
 
-        tr.appendChild(tdName);
-        tr.appendChild(tdScore);
-        scoreboardBody.appendChild(tr);
-      }
-    }
+    tdName.textContent = `${emoji}${players[i].name}${turnText}`;
+    tdScore.textContent = String(total);
+
+    tr.appendChild(tdName);
+    tr.appendChild(tdScore);
+    scoreboardBody.appendChild(tr);
+  }
+}
+
 
     // ---------------------------
     // History (Back button)
