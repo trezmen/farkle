@@ -14,11 +14,8 @@
     .card { background: #fff; border: 1px solid #e6e8ee; border-radius: 12px; padding: 14px; box-shadow: 0 1px 0 rgba(0,0,0,0.03); }
     .stack { display: grid; gap: 12px; }
 
-    .row { display: grid; gap: 10px; }
-    @media (min-width: 720px) { .row.two { grid-template-columns: 1fr 1fr; } }
-
     label { font-size: 12px; color: #444; }
-    input[type="number"], input[type="text"]{
+    input[type="text"]{
       width: 100%;
       padding: 12px 12px;
       border: 1px solid #d7dbe6;
@@ -37,28 +34,51 @@
       cursor: pointer;
       width: 100%;
     }
-    button.primary { background: #111; color: #fff; border-color: #111; }
-    button.danger { background: #b00020; color: #fff; border-color: #b00020; }
-    button.ghost { background: #fff; }
     button:disabled { opacity: 0.55; cursor: not-allowed; }
 
-    .pillbar { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-    @media (max-width: 420px) { .pillbar { grid-template-columns: 1fr; } }
+    .hidden { display: none !important; }
 
-    .hud { display: grid; gap: 10px; }
-    .hudTop { display: grid; gap: 10px; }
-    @media (min-width: 720px) { .hudTop { grid-template-columns: 1fr 1fr; } }
+    /* Setup: number buttons */
+    .numGrid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+    }
+    @media (max-width: 420px) {
+      .numGrid { grid-template-columns: repeat(5, 1fr); }
+    }
+    .numBtn { padding: 10px 0; border-radius: 10px; font-size: 14px; }
+    .numBtn.active { border-color: #111; box-shadow: 0 0 0 2px rgba(17,17,17,0.12); }
 
-    .stat { border: 1px solid #e6e8ee; border-radius: 12px; padding: 12px; background: #fbfbfd; }
-    .stat .k { font-size: 12px; color: #444; }
-    .stat .v { font-size: 22px; font-weight: 700; margin-top: 6px; }
+    /* Green buttons (Start Game + End Turn) */
+    .success { background: #1b7f3a; color: #fff; border-color: #1b7f3a; }
+    .danger { background: #b00020; color: #fff; border-color: #b00020; }
+    .ghost { background: #fff; }
 
-    .options {
+    /* Setup layout */
+    .setupActions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (min-width: 720px) { .setupActions { grid-template-columns: 1fr 1fr 1fr; } }
+
+    .namesGrid { display: grid; gap: 10px; }
+    @media (min-width: 720px) { .namesGrid { grid-template-columns: 1fr 1fr; } }
+
+    .muted { color: #666; font-size: 12px; line-height: 1.4; }
+
+    /* Game */
+    .currentPlayerTop {
+      font-size: 14px;
+      font-weight: 650;
+      margin: 0;
+    }
+
+    /* Options: forced two columns */
+    .optionsTwoCol {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
+      align-items: start;
     }
-    @media (min-width: 720px) { .options { grid-template-columns: 1fr 1fr 1fr; } }
+    .optCol { display: grid; gap: 10px; }
 
     .opt {
       text-align: left;
@@ -69,17 +89,32 @@
       user-select: none;
     }
     .opt .title { font-weight: 650; font-size: 15px; }
-    .opt .sub { font-size: 12px; color: #555; margin-top: 4px; }
-    .opt.selected { border-color: #111; box-shadow: 0 0 0 2px rgba(17,17,17,0.12); }
+
+    /* Highlight states */
+    .opt.selected1 { border-color: #111; box-shadow: 0 0 0 2px rgba(17,17,17,0.12); }
+    .opt.selected2 { border-color: #111; box-shadow: 0 0 0 2px rgba(17,17,17,0.18); background: #f0f2f7; }
+
+    /* Totals row */
+    .totalsRow {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+    }
+    .stat {
+      border: 1px solid #e6e8ee;
+      border-radius: 12px;
+      padding: 12px;
+      background: #fbfbfd;
+    }
+    .stat .k { font-size: 12px; color: #444; }
+    .stat .v { font-size: 20px; font-weight: 700; margin-top: 6px; }
+
+    .btnRow3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    @media (max-width: 420px) { .btnRow3 { grid-template-columns: 1fr; } }
 
     table { width: 100%; border-collapse: collapse; }
     th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #eef0f6; font-size: 14px; }
     th { font-size: 12px; color: #444; font-weight: 650; }
-
-    .muted { color: #666; font-size: 12px; line-height: 1.4; }
-    .hidden { display: none !important; }
-
-    .tiny { font-size: 12px; color: #666; margin-top: 8px; }
   </style>
 </head>
 <body>
@@ -90,78 +125,54 @@
   <main class="stack">
     <!-- SETUP -->
     <section id="setupView" class="card stack">
-      <div class="row">
-        <div>
-          <label for="numPlayers">Number of players</label>
-          <input id="numPlayers" type="number" min="1" max="12" value="2" />
-        </div>
-        <div class="pillbar">
-          <button id="buildNamesBtn" class="primary">Create name fields</button>
+      <div class="stack">
+        <div class="muted">Choose number of players (1–10). This order becomes the turn rotation.</div>
+        <div id="numGrid" class="numGrid"></div>
+
+        <div id="namesArea" class="namesGrid"></div>
+
+        <div class="setupActions">
+          <button id="startGameBtn" class="success" disabled>Start game</button>
           <button id="clearSetupBtn" class="ghost">Clear</button>
-          <button id="startGameBtn" class="primary" disabled>Start game</button>
         </div>
-      </div>
-
-      <div id="namesArea" class="row two"></div>
-
-      <div class="muted">
-        Enter player names in order. That order becomes the turn rotation.
       </div>
     </section>
 
     <!-- GAME -->
     <section id="gameView" class="card stack hidden">
-      <div class="hud">
-        <div class="hudTop">
-          <div class="stat">
-            <div class="k">Current player</div>
-            <div class="v" id="currentPlayerName">—</div>
-          </div>
-          <div class="stat">
-            <div class="k">Round total (this turn)</div>
-            <div class="v" id="roundTotal">0</div>
-          </div>
-        </div>
+      <p class="currentPlayerTop" id="currentPlayerLine">Current player: —</p>
 
-        <div class="hudTop">
-          <div class="stat">
-            <div class="k">Selected points (this roll)</div>
-            <div class="v" id="selectedPoints">0</div>
-          </div>
-          <div class="stat">
-            <div class="k">Status</div>
-            <div class="v" id="statusText">Select scoring options</div>
-          </div>
+      <div class="optionsTwoCol">
+        <div class="optCol" id="leftOptions"></div>
+        <div class="optCol" id="rightOptions"></div>
+      </div>
+
+      <div class="totalsRow">
+        <div class="stat">
+          <div class="k">Selected points</div>
+          <div class="v" id="selectedPoints">0</div>
+        </div>
+        <div class="stat">
+          <div class="k">Round total</div>
+          <div class="v" id="roundTotal">0</div>
+        </div>
+        <div class="stat">
+          <div class="k">Grand total if ended now</div>
+          <div class="v" id="projectedGrand">0</div>
         </div>
       </div>
 
-      <div>
-        <div class="row">
-          <div class="pillbar">
-            <button id="nextRollBtn" class="primary" disabled>Next roll</button>
-            <button id="farkleBtn" class="danger">Farkle</button>
-            <button id="endTurnBtn" class="primary">End turn (bank)</button>
-          </div>
-          <div class="pillbar">
-            <button id="clearSelectionBtn" class="ghost">Clear selection</button>
-            <button id="resetGameBtn" class="ghost">Reset game</button>
-            <button id="backToSetupBtn" class="ghost">Back to setup</button>
-          </div>
-        </div>
+      <div class="btnRow3">
+        <button id="nextRollBtn" disabled>Next roll</button>
+        <button id="farkleBtn" class="danger">Farkle</button>
+        <button id="endTurnBtn" class="success">End turn</button>
       </div>
 
-      <div>
-        <div class="muted">
-          Tap one or more scoring options that were set aside from the current roll. Then press “Next roll” to add them to the round total.
-          Press “End turn (bank)” to add the round total to the player’s grand total and move to the next player.
-          Press “Farkle” to lose the round total and move to the next player.
-        </div>
-        <div class="tiny">
-          Note: Point values for special combos can be adjusted in the code later if your group uses different rules.
-        </div>
+      <div class="btnRow3">
+        <button id="backBtn" class="ghost" disabled>Back</button>
+        <button id="resetGameBtn" class="ghost">Reset game</button>
+        <button id="backToSetupBtn" class="ghost">Back to setup</button>
       </div>
-
-      <div id="optionsGrid" class="options"></div>
 
       <div class="stack">
         <h2 style="margin: 6px 0 0 0; font-size: 16px;">Scoreboard</h2>
@@ -179,41 +190,46 @@
 
   <script>
     // ---------------------------
-    // CONFIG: 15 scoring options
-    // Edit points later if desired.
+    // Options in EXACT order/labels you specified
     // ---------------------------
-    const SCORE_OPTIONS = [
-      { id: "one", label: "Single 1", points: 100, note: "Each 1 kept" },
-      { id: "five", label: "Single 5", points: 50, note: "Each 5 kept" },
-
-      { id: "3x1", label: "Three 1s", points: 1000, note: "Three-of-a-kind" },
-      { id: "3x2", label: "Three 2s", points: 200, note: "Three-of-a-kind" },
-      { id: "3x3", label: "Three 3s", points: 300, note: "Three-of-a-kind" },
-      { id: "3x4", label: "Three 4s", points: 400, note: "Three-of-a-kind" },
-      { id: "3x5", label: "Three 5s", points: 500, note: "Three-of-a-kind" },
-      { id: "3x6", label: "Three 6s", points: 600, note: "Three-of-a-kind" },
-
-      // Common special combos:
-      { id: "straight", label: "Straight (1–6)", points: 1500, note: "All six dice" },
-      { id: "3pairs", label: "Three pairs", points: 1500, note: "All six dice" },
-      { id: "2trip", label: "Two triplets", points: 2500, note: "All six dice" },
-
-      // Common multipliers (variants exist):
-      { id: "4kind", label: "Four of a kind", points: 1000, note: "Variant rule" },
-      { id: "5kind", label: "Five of a kind", points: 2000, note: "Variant rule" },
-      { id: "6kind", label: "Six of a kind", points: 3000, note: "Variant rule" },
-
-      // Extra slot if you want a house rule later:
-      { id: "house", label: "House combo", points: 0, note: "Set later" },
+    const LEFT_COLUMN = [
+      { id: "fives", label: "Fives", points: 50, mode: "cycle2" },
+      { id: "t1", label: "Triple 1s", points: 300, mode: "toggle" }, // per your text
+      { id: "t2", label: "Triple 2s", points: 200, mode: "toggle" },
+      { id: "t3", label: "Triple 3s", points: 300, mode: "toggle" },
+      { id: "t4", label: "Triple 4s", points: 400, mode: "toggle" },
+      { id: "t5", label: "Triple 5s", points: 500, mode: "toggle" },
+      { id: "t6", label: "Triple 6s", points: 600, mode: "toggle" },
     ];
+
+    const RIGHT_COLUMN = [
+      { id: "ones", label: "Ones", points: 100, mode: "cycle2" },
+      { id: "4kind", label: "Four-of-a-kind", points: 1000, mode: "toggle" },
+      { id: "5kind", label: "Five of a kind", points: 2000, mode: "toggle" },
+      { id: "6kind", label: "Six of a kind", points: 3000, mode: "toggle" },
+      { id: "3pairs", label: "Three pairs", points: 1500, mode: "toggle" },
+      { id: "quadpair", label: "Quadruplet + Pair", points: 1500, mode: "toggle" },
+      { id: "2trip", label: "Two Triplets", points: 2500, mode: "toggle" },
+    ];
+
+    const ALL_OPTIONS = [...LEFT_COLUMN, ...RIGHT_COLUMN];
 
     // ---------------------------
     // State
     // ---------------------------
+    let selectedPlayerCount = 0;
+
     let players = []; // [{ name, total }]
     let currentPlayerIndex = 0;
     let roundTotal = 0;
-    let selectedOptionIds = new Set(); // selections for the CURRENT roll only
+
+    // Selection state for the CURRENT roll only:
+    // - toggle options: 0 or 1
+    // - cycle2 options (ones/fives): 0,1,2
+    const selectionCounts = new Map(); // id -> count (0..2 or 0/1)
+
+    // Back/Undo: store snapshots before any action
+    const history = []; // stack of snapshots
 
     // ---------------------------
     // Elements
@@ -221,58 +237,99 @@
     const setupView = document.getElementById("setupView");
     const gameView = document.getElementById("gameView");
 
-    const numPlayersEl = document.getElementById("numPlayers");
-    const buildNamesBtn = document.getElementById("buildNamesBtn");
-    const clearSetupBtn = document.getElementById("clearSetupBtn");
-    const startGameBtn = document.getElementById("startGameBtn");
+    const numGrid = document.getElementById("numGrid");
     const namesArea = document.getElementById("namesArea");
+    const startGameBtn = document.getElementById("startGameBtn");
+    const clearSetupBtn = document.getElementById("clearSetupBtn");
 
-    const currentPlayerNameEl = document.getElementById("currentPlayerName");
-    const roundTotalEl = document.getElementById("roundTotal");
+    const currentPlayerLine = document.getElementById("currentPlayerLine");
+    const leftOptionsEl = document.getElementById("leftOptions");
+    const rightOptionsEl = document.getElementById("rightOptions");
+
     const selectedPointsEl = document.getElementById("selectedPoints");
-    const statusTextEl = document.getElementById("statusText");
-
-    const optionsGrid = document.getElementById("optionsGrid");
-    const scoreboardBody = document.getElementById("scoreboardBody");
+    const roundTotalEl = document.getElementById("roundTotal");
+    const projectedGrandEl = document.getElementById("projectedGrand");
 
     const nextRollBtn = document.getElementById("nextRollBtn");
     const farkleBtn = document.getElementById("farkleBtn");
     const endTurnBtn = document.getElementById("endTurnBtn");
-    const clearSelectionBtn = document.getElementById("clearSelectionBtn");
+    const backBtn = document.getElementById("backBtn");
     const resetGameBtn = document.getElementById("resetGameBtn");
     const backToSetupBtn = document.getElementById("backToSetupBtn");
 
+    const scoreboardBody = document.getElementById("scoreboardBody");
+
     // ---------------------------
-    // Setup helpers
+    // Setup UI
     // ---------------------------
+    function renderNumButtons() {
+      numGrid.innerHTML = "";
+      for (let i = 1; i <= 10; i++) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "numBtn";
+        b.textContent = String(i);
+        b.addEventListener("click", () => {
+          selectedPlayerCount = i;
+          highlightActiveNum(i);
+          buildNameFields(i);
+        });
+        numGrid.appendChild(b);
+      }
+    }
+
+    function highlightActiveNum(n) {
+      [...numGrid.querySelectorAll("button")].forEach(btn => {
+        btn.classList.toggle("active", btn.textContent === String(n));
+      });
+    }
+
     function clearSetupUI() {
+      selectedPlayerCount = 0;
+      highlightActiveNum(-1);
       namesArea.innerHTML = "";
       startGameBtn.disabled = true;
     }
 
-    function buildNameFields() {
-      clearSetupUI();
-      const n = clampInt(numPlayersEl.value, 1, 12);
-      numPlayersEl.value = String(n);
-
+    function buildNameFields(n) {
+      namesArea.innerHTML = "";
       for (let i = 0; i < n; i++) {
         const wrap = document.createElement("div");
-        const label = document.createElement("label");
-        label.textContent = `Player ${i + 1} name`;
-        label.setAttribute("for", `pname_${i}`);
 
-        const input = document.createElement("input");
-        input.type = "text";
-        input.id = `pname_${i}`;
-        input.placeholder = `Player ${i + 1}`;
-        input.autocomplete = "off";
-        input.addEventListener("input", validateSetupReady);
+        const lab = document.createElement("label");
+        lab.setAttribute("for", `pname_${i}`);
+        lab.textContent = `Player ${i + 1} name`;
 
-        wrap.appendChild(label);
-        wrap.appendChild(input);
+        const inp = document.createElement("input");
+        inp.type = "text";
+        inp.id = `pname_${i}`;
+        inp.placeholder = `Player ${i + 1}`;
+        inp.autocomplete = "off";
+
+        inp.addEventListener("input", validateSetupReady);
+
+        // Enter moves to next field; last field starts game (if ready)
+        inp.addEventListener("keydown", (e) => {
+          if (e.key !== "Enter") return;
+          e.preventDefault();
+          const next = document.getElementById(`pname_${i + 1}`);
+          if (next) {
+            next.focus();
+            next.select?.();
+            return;
+          }
+          validateSetupReady();
+          if (!startGameBtn.disabled) startGame();
+        });
+
+        wrap.appendChild(lab);
+        wrap.appendChild(inp);
         namesArea.appendChild(wrap);
       }
       validateSetupReady();
+      // Focus first field for convenience
+      const first = document.getElementById("pname_0");
+      if (first) first.focus();
     }
 
     function validateSetupReady() {
@@ -289,79 +346,124 @@
     }
 
     // ---------------------------
-    // Game helpers
+    // Game UI: options
     // ---------------------------
-    function clampInt(val, min, max) {
-      const n = parseInt(val, 10);
-      if (Number.isNaN(n)) return min;
-      return Math.max(min, Math.min(max, n));
+    function initSelectionCounts() {
+      selectionCounts.clear();
+      for (const opt of ALL_OPTIONS) selectionCounts.set(opt.id, 0);
+    }
+
+    function formatOptionLabel(opt, count) {
+      // Base label form: "Label (points)" possibly with " x2"
+      if (opt.mode === "cycle2") {
+        if (count === 0) return `${opt.label} (${opt.points})`;
+        if (count === 1) return `${opt.label} (${opt.points})`;
+        // count === 2
+        return `${opt.label} (${opt.points}) x2`;
+      }
+      // toggle
+      return `${opt.label} (${opt.points})`;
     }
 
     function getSelectedPoints() {
       let sum = 0;
-      for (const opt of SCORE_OPTIONS) {
-        if (selectedOptionIds.has(opt.id)) sum += opt.points;
+      for (const opt of ALL_OPTIONS) {
+        const c = selectionCounts.get(opt.id) || 0;
+        if (opt.mode === "cycle2") {
+          sum += c * opt.points;
+        } else {
+          sum += (c ? opt.points : 0);
+        }
       }
       return sum;
     }
 
+    function renderOptionButton(opt) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "opt";
+      btn.dataset.id = opt.id;
+
+      const title = document.createElement("div");
+      title.className = "title";
+      title.textContent = formatOptionLabel(opt, 0);
+      btn.appendChild(title);
+
+      btn.addEventListener("click", () => {
+        const current = selectionCounts.get(opt.id) || 0;
+        let next = current;
+
+        if (opt.mode === "cycle2") {
+          // off -> x1 -> x2 -> off
+          next = (current + 1) % 3;
+        } else {
+          // toggle 0/1
+          next = current ? 0 : 1;
+        }
+
+        selectionCounts.set(opt.id, next);
+        updateSelectionsUI();
+      });
+
+      return btn;
+    }
+
     function renderOptions() {
-      optionsGrid.innerHTML = "";
-      for (const opt of SCORE_OPTIONS) {
-        const btn = document.createElement("button");
-        btn.className = "opt";
-        btn.type = "button";
-        btn.dataset.id = opt.id;
+      leftOptionsEl.innerHTML = "";
+      rightOptionsEl.innerHTML = "";
 
-        const title = document.createElement("div");
-        title.className = "title";
-        title.textContent = `${opt.label} (${opt.points})`;
+      for (const opt of LEFT_COLUMN) leftOptionsEl.appendChild(renderOptionButton(opt));
+      for (const opt of RIGHT_COLUMN) rightOptionsEl.appendChild(renderOptionButton(opt));
 
-        const sub = document.createElement("div");
-        sub.className = "sub";
-        sub.textContent = opt.note;
-
-        btn.appendChild(title);
-        btn.appendChild(sub);
-
-        btn.addEventListener("click", () => {
-          if (selectedOptionIds.has(opt.id)) selectedOptionIds.delete(opt.id);
-          else selectedOptionIds.add(opt.id);
-          updateSelectionsUI();
-        });
-
-        optionsGrid.appendChild(btn);
-      }
       updateSelectionsUI();
     }
 
     function updateSelectionsUI() {
+      // Update button labels + selected styling
+      const allButtons = [...leftOptionsEl.querySelectorAll(".opt"), ...rightOptionsEl.querySelectorAll(".opt")];
+
+      for (const btn of allButtons) {
+        const id = btn.dataset.id;
+        const opt = ALL_OPTIONS.find(o => o.id === id);
+        const count = selectionCounts.get(id) || 0;
+
+        // label
+        btn.querySelector(".title").textContent = formatOptionLabel(opt, count);
+
+        // styling
+        btn.classList.remove("selected1", "selected2");
+        if (opt.mode === "cycle2") {
+          if (count === 1) btn.classList.add("selected1");
+          if (count === 2) btn.classList.add("selected2");
+        } else {
+          if (count === 1) btn.classList.add("selected1");
+        }
+      }
+
+      // Totals
       const selectedPoints = getSelectedPoints();
       selectedPointsEl.textContent = String(selectedPoints);
+      roundTotalEl.textContent = String(roundTotal);
 
-      // Toggle selected style
-      const buttons = optionsGrid.querySelectorAll(".opt");
-      buttons.forEach(b => {
-        const id = b.dataset.id;
-        if (selectedOptionIds.has(id)) b.classList.add("selected");
-        else b.classList.remove("selected");
-      });
+      const currentGrand = players[currentPlayerIndex]?.total ?? 0;
+      projectedGrandEl.textContent = String(currentGrand + roundTotal + selectedPoints);
 
-      // Enable next roll only if something is selected
+      // Next roll enabled only if something selected
       nextRollBtn.disabled = selectedPoints <= 0;
 
-      // Status line
-      if (selectedPoints > 0) statusTextEl.textContent = "Ready to add and roll again";
-      else statusTextEl.textContent = "Select scoring options";
+      // Back enabled if history exists
+      backBtn.disabled = history.length === 0;
+
+      // Current player line
+      const name = players[currentPlayerIndex]?.name ?? "—";
+      currentPlayerLine.textContent = `Current player: ${name}`;
+
+      renderScoreboard();
     }
 
-    function renderHUD() {
-      const p = players[currentPlayerIndex];
-      currentPlayerNameEl.textContent = p ? p.name : "—";
-      roundTotalEl.textContent = String(roundTotal);
-      selectedPointsEl.textContent = String(getSelectedPoints());
-    }
-
+    // ---------------------------
+    // Scoreboard
+    // ---------------------------
     function renderScoreboard() {
       scoreboardBody.innerHTML = "";
       for (let i = 0; i < players.length; i++) {
@@ -369,8 +471,7 @@
         const tdName = document.createElement("td");
         const tdScore = document.createElement("td");
 
-        const isCurrent = i === currentPlayerIndex;
-        tdName.textContent = players[i].name + (isCurrent ? " (turn)" : "");
+        tdName.textContent = players[i].name + (i === currentPlayerIndex ? " (turn)" : "");
         tdScore.textContent = String(players[i].total);
 
         tr.appendChild(tdName);
@@ -379,67 +480,98 @@
       }
     }
 
-    function clearRollSelection() {
-      selectedOptionIds.clear();
+    // ---------------------------
+    // History (Back button)
+    // ---------------------------
+    function snapshotState() {
+      // Deep enough for our needs
+      return {
+        players: players.map(p => ({ name: p.name, total: p.total })),
+        currentPlayerIndex,
+        roundTotal,
+        selectionCounts: new Map(selectionCounts),
+      };
+    }
+
+    function restoreState(snap) {
+      players = snap.players.map(p => ({ name: p.name, total: p.total }));
+      currentPlayerIndex = snap.currentPlayerIndex;
+      roundTotal = snap.roundTotal;
+      selectionCounts.clear();
+      for (const [k, v] of snap.selectionCounts.entries()) selectionCounts.set(k, v);
       updateSelectionsUI();
+    }
+
+    function pushHistory() {
+      history.push(snapshotState());
+      // Keep history bounded so it doesn't grow forever
+      if (history.length > 50) history.shift();
+      backBtn.disabled = history.length === 0;
+    }
+
+    function popHistory() {
+      const snap = history.pop();
+      if (!snap) return;
+      restoreState(snap);
+      backBtn.disabled = history.length === 0;
+    }
+
+    // ---------------------------
+    // Game actions
+    // ---------------------------
+    function clearRollSelection() {
+      for (const opt of ALL_OPTIONS) selectionCounts.set(opt.id, 0);
     }
 
     function advancePlayer() {
       currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
       roundTotal = 0;
       clearRollSelection();
-      renderAll();
     }
 
-    function renderAll() {
-      renderHUD();
-      renderScoreboard();
-      updateSelectionsUI();
-    }
-
-    // ---------------------------
-    // Actions
-    // ---------------------------
     function startGame() {
       const inputs = namesArea.querySelectorAll("input[type='text']");
-      const newPlayers = [];
-      inputs.forEach(inp => {
-        newPlayers.push({ name: inp.value.trim(), total: 0 });
-      });
+      players = [];
+      inputs.forEach(inp => players.push({ name: inp.value.trim(), total: 0 }));
 
-      players = newPlayers;
       currentPlayerIndex = 0;
       roundTotal = 0;
-      selectedOptionIds.clear();
+      history.length = 0;
 
-      // Switch views
+      initSelectionCounts();
+
       setupView.classList.add("hidden");
       gameView.classList.remove("hidden");
 
       renderOptions();
-      renderAll();
+      updateSelectionsUI();
     }
 
     function onNextRoll() {
       const add = getSelectedPoints();
+      if (add <= 0) return;
+      pushHistory();
       roundTotal += add;
       clearRollSelection();
-      renderAll();
+      updateSelectionsUI();
     }
 
     function onFarkle() {
-      // Farkle loses round points and moves to next player
+      pushHistory();
       roundTotal = 0;
       clearRollSelection();
       advancePlayer();
+      updateSelectionsUI();
     }
 
-    function onEndTurnBank() {
-      // Bank round total to grand total, then next player
-      players[currentPlayerIndex].total += roundTotal;
+    function onEndTurn() {
+      pushHistory();
+      const bank = roundTotal + getSelectedPoints();
+      players[currentPlayerIndex].total += bank;
       roundTotal = 0;
       clearRollSelection();
       advancePlayer();
+      updateSelectionsUI();
     }
 
     function resetGame() {
@@ -447,7 +579,8 @@
       players = [];
       currentPlayerIndex = 0;
       roundTotal = 0;
-      selectedOptionIds.clear();
+      selectionCounts.clear();
+      history.length = 0;
 
       gameView.classList.add("hidden");
       setupView.classList.remove("hidden");
@@ -462,26 +595,26 @@
     // ---------------------------
     // Wire up
     // ---------------------------
-    buildNamesBtn.addEventListener("click", buildNameFields);
+    startGameBtn.addEventListener("click", startGame);
     clearSetupBtn.addEventListener("click", () => {
-      numPlayersEl.value = "2";
       clearSetupUI();
     });
-    startGameBtn.addEventListener("click", startGame);
 
     nextRollBtn.addEventListener("click", onNextRoll);
     farkleBtn.addEventListener("click", onFarkle);
-    endTurnBtn.addEventListener("click", onEndTurnBank);
-    clearSelectionBtn.addEventListener("click", () => {
-      clearRollSelection();
-      renderAll();
-    });
+    endTurnBtn.addEventListener("click", onEndTurn);
+    backBtn.addEventListener("click", popHistory);
+
     resetGameBtn.addEventListener("click", resetGame);
     backToSetupBtn.addEventListener("click", backToSetup);
 
-    // Build initial name fields for convenience
-    buildNameFields();
+    // Init
+    renderNumButtons();
+    clearSetupUI();
+
+    // Suggestion (no behavior change unless you use it):
+    // If you later decide "Triple 1s" should be 1000 (common rule),
+    // change LEFT_COLUMN entry { points: 300 } to { points: 1000 }.
   </script>
 </body>
 </html>
-
