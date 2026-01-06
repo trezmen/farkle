@@ -44,9 +44,6 @@
       grid-template-columns: repeat(5, 1fr);
       gap: 8px;
     }
-    @media (max-width: 420px) {
-      .numGrid { grid-template-columns: repeat(5, 1fr); }
-    }
     .numBtn { padding: 10px 0; border-radius: 10px; font-size: 14px; }
     .numBtn.active { border-color: #111; box-shadow: 0 0 0 2px rgba(17,17,17,0.12); }
 
@@ -54,6 +51,9 @@
     .success { background: #1b7f3a; color: #fff; border-color: #1b7f3a; }
     .danger { background: #b00020; color: #fff; border-color: #b00020; }
     .ghost { background: #fff; }
+
+    /* Next roll active blue */
+    .primaryBlue { background: #0b5fff; color: #fff; border-color: #0b5fff; }
 
     /* Setup layout */
     .setupActions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -90,9 +90,11 @@
     }
     .opt .title { font-weight: 650; font-size: 15px; }
 
-    /* Highlight states */
-    .opt.selected1 { border-color: #111; box-shadow: 0 0 0 2px rgba(17,17,17,0.12); }
-    .opt.selected2 { border-color: #111; box-shadow: 0 0 0 2px rgba(17,17,17,0.18); background: #f0f2f7; }
+    /* Highlight states (more obvious) */
+    /* selected1 is now the old x2-look (used for first selection) */
+    .opt.selected1 { border-color: #111; box-shadow: 0 0 0 2px rgba(17,17,17,0.18); background: #f0f2f7; }
+    /* selected2 is stronger (used for x2) */
+    .opt.selected2 { border-color: #111; box-shadow: 0 0 0 3px rgba(17,17,17,0.22); background: #e6eaf5; }
 
     /* Totals row */
     .totalsRow {
@@ -157,7 +159,7 @@
           <div class="v" id="roundTotal">0</div>
         </div>
         <div class="stat">
-          <div class="k">Grand total if ended now</div>
+          <div class="k">Grand total</div>
           <div class="v" id="projectedGrand">0</div>
         </div>
       </div>
@@ -171,7 +173,7 @@
       <div class="btnRow3">
         <button id="backBtn" class="ghost" disabled>Back</button>
         <button id="resetGameBtn" class="ghost">Reset game</button>
-        <button id="backToSetupBtn" class="ghost">Back to setup</button>
+        <button id="backToSetupBtn" class="ghost">Setup Game</button>
       </div>
 
       <div class="stack">
@@ -194,7 +196,7 @@
     // ---------------------------
     const LEFT_COLUMN = [
       { id: "fives", label: "Fives", points: 50, mode: "cycle2" },
-      { id: "t1", label: "Triple 1s", points: 300, mode: "toggle" }, // per your text
+      { id: "t1", label: "Triple 1s", points: 300, mode: "toggle" },
       { id: "t2", label: "Triple 2s", points: 200, mode: "toggle" },
       { id: "t3", label: "Triple 3s", points: 300, mode: "toggle" },
       { id: "t4", label: "Triple 4s", points: 400, mode: "toggle" },
@@ -204,11 +206,11 @@
 
     const RIGHT_COLUMN = [
       { id: "ones", label: "Ones", points: 100, mode: "cycle2" },
-      { id: "4kind", label: "Four-of-a-kind", points: 1000, mode: "toggle" },
-      { id: "5kind", label: "Five of a kind", points: 2000, mode: "toggle" },
-      { id: "6kind", label: "Six of a kind", points: 3000, mode: "toggle" },
+      { id: "4kind", label: "Four-of-a-kind", points: 1000, displayPoints: "1k", mode: "toggle" },
+      { id: "5kind", label: "Five-of-a-kind", points: 2000, mode: "toggle" },
+      { id: "6kind", label: "Six-of-a-kind", points: 3000, mode: "toggle" },
       { id: "3pairs", label: "Three pairs", points: 1500, mode: "toggle" },
-      { id: "quadpair", label: "Quadruplet + Pair", points: 1500, mode: "toggle" },
+      { id: "quadpair", label: "Quad + Pair", points: 1500, mode: "toggle" },
       { id: "2trip", label: "Two Triplets", points: 2500, mode: "toggle" },
     ];
 
@@ -306,6 +308,10 @@
         inp.placeholder = `Player ${i + 1}`;
         inp.autocomplete = "off";
 
+        // Helps mobile keyboards auto-capitalize names
+        inp.setAttribute("autocapitalize", "words");
+        inp.setAttribute("autocorrect", "on");
+
         inp.addEventListener("input", validateSetupReady);
 
         // Enter moves to next field; last field starts game (if ready)
@@ -327,7 +333,6 @@
         namesArea.appendChild(wrap);
       }
       validateSetupReady();
-      // Focus first field for convenience
       const first = document.getElementById("pname_0");
       if (first) first.focus();
     }
@@ -354,26 +359,22 @@
     }
 
     function formatOptionLabel(opt, count) {
-      // Base label form: "Label (points)" possibly with " x2"
+      const pointsText = opt.displayPoints ?? String(opt.points);
+
       if (opt.mode === "cycle2") {
-        if (count === 0) return `${opt.label} (${opt.points})`;
-        if (count === 1) return `${opt.label} (${opt.points})`;
-        // count === 2
-        return `${opt.label} (${opt.points}) x2`;
+        if (count === 0) return `${opt.label} (${pointsText})`;
+        if (count === 1) return `${opt.label} (${pointsText})`;
+        return `${opt.label} (${pointsText}) x2`;
       }
-      // toggle
-      return `${opt.label} (${opt.points})`;
+      return `${opt.label} (${pointsText})`;
     }
 
     function getSelectedPoints() {
       let sum = 0;
       for (const opt of ALL_OPTIONS) {
         const c = selectionCounts.get(opt.id) || 0;
-        if (opt.mode === "cycle2") {
-          sum += c * opt.points;
-        } else {
-          sum += (c ? opt.points : 0);
-        }
+        if (opt.mode === "cycle2") sum += c * opt.points;
+        else sum += (c ? opt.points : 0);
       }
       return sum;
     }
@@ -419,7 +420,6 @@
     }
 
     function updateSelectionsUI() {
-      // Update button labels + selected styling
       const allButtons = [...leftOptionsEl.querySelectorAll(".opt"), ...rightOptionsEl.querySelectorAll(".opt")];
 
       for (const btn of allButtons) {
@@ -427,12 +427,12 @@
         const opt = ALL_OPTIONS.find(o => o.id === id);
         const count = selectionCounts.get(id) || 0;
 
-        // label
         btn.querySelector(".title").textContent = formatOptionLabel(opt, count);
 
-        // styling
         btn.classList.remove("selected1", "selected2");
+
         if (opt.mode === "cycle2") {
+          // More obvious: x1 uses the old x2 highlight; x2 uses stronger highlight
           if (count === 1) btn.classList.add("selected1");
           if (count === 2) btn.classList.add("selected2");
         } else {
@@ -440,7 +440,6 @@
         }
       }
 
-      // Totals
       const selectedPoints = getSelectedPoints();
       selectedPointsEl.textContent = String(selectedPoints);
       roundTotalEl.textContent = String(roundTotal);
@@ -448,13 +447,13 @@
       const currentGrand = players[currentPlayerIndex]?.total ?? 0;
       projectedGrandEl.textContent = String(currentGrand + roundTotal + selectedPoints);
 
-      // Next roll enabled only if something selected
       nextRollBtn.disabled = selectedPoints <= 0;
 
-      // Back enabled if history exists
+      // Next roll enabled styling (blue background, white text)
+      nextRollBtn.classList.toggle("primaryBlue", !nextRollBtn.disabled);
+
       backBtn.disabled = history.length === 0;
 
-      // Current player line
       const name = players[currentPlayerIndex]?.name ?? "—";
       currentPlayerLine.textContent = `Current player: ${name}`;
 
@@ -484,7 +483,6 @@
     // History (Back button)
     // ---------------------------
     function snapshotState() {
-      // Deep enough for our needs
       return {
         players: players.map(p => ({ name: p.name, total: p.total })),
         currentPlayerIndex,
@@ -504,7 +502,6 @@
 
     function pushHistory() {
       history.push(snapshotState());
-      // Keep history bounded so it doesn't grow forever
       if (history.length > 50) history.shift();
       backBtn.disabled = history.length === 0;
     }
@@ -574,8 +571,18 @@
       updateSelectionsUI();
     }
 
-    function resetGame() {
-      if (!confirm("Reset game scores and return to setup?")) return;
+    // Reset game: wipe points but keep same players
+    function resetPointsKeepPlayers() {
+      if (!confirm("Reset all points for current players?")) return;
+      history.length = 0;
+      roundTotal = 0;
+      clearRollSelection();
+      for (const p of players) p.total = 0;
+      updateSelectionsUI();
+    }
+
+    function setupGame() {
+      if (!confirm("Go to setup? Current game will be lost.")) return;
       players = [];
       currentPlayerIndex = 0;
       roundTotal = 0;
@@ -587,34 +594,23 @@
       clearSetupUI();
     }
 
-    function backToSetup() {
-      if (!confirm("Return to setup? Current game will be lost.")) return;
-      resetGame();
-    }
-
     // ---------------------------
     // Wire up
     // ---------------------------
     startGameBtn.addEventListener("click", startGame);
-    clearSetupBtn.addEventListener("click", () => {
-      clearSetupUI();
-    });
+    clearSetupBtn.addEventListener("click", () => { clearSetupUI(); });
 
     nextRollBtn.addEventListener("click", onNextRoll);
     farkleBtn.addEventListener("click", onFarkle);
     endTurnBtn.addEventListener("click", onEndTurn);
     backBtn.addEventListener("click", popHistory);
 
-    resetGameBtn.addEventListener("click", resetGame);
-    backToSetupBtn.addEventListener("click", backToSetup);
+    resetGameBtn.addEventListener("click", resetPointsKeepPlayers);
+    backToSetupBtn.addEventListener("click", setupGame);
 
     // Init
     renderNumButtons();
     clearSetupUI();
-
-    // Suggestion (no behavior change unless you use it):
-    // If you later decide "Triple 1s" should be 1000 (common rule),
-    // change LEFT_COLUMN entry { points: 300 } to { points: 1000 }.
   </script>
 </body>
 </html>
