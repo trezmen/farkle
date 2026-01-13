@@ -90,19 +90,16 @@
       border: 1px solid #d7dbe6;
       background: #fff;
       user-select: none;
-      -webkit-user-select: none;
-      -webkit-touch-callout: none;
     }
     .opt .title { font-weight: 650; font-size: 15px; }
 
-    /* Highlight states (more obvious) */
+    /* Highlight states (darker as multiplier increases) */
     .opt.selected1 { border-color: #111; box-shadow: 0 0 0 2px rgba(17,17,17,0.18); background: #f0f2f7; }
     .opt.selected2 { border-color: #111; box-shadow: 0 0 0 3px rgba(17,17,17,0.22); background: #e6eaf5; }
-
-    /* Added for x3 / x4 (darker each step) */
-    .opt.selected3 { border-color: #111; box-shadow: 0 0 0 3px rgba(17,17,17,0.24); background: #d6ddf2; }
-    .opt.selected4 { border-color: #111; box-shadow: 0 0 0 4px rgba(17,17,17,0.26); background: #c6d0ee; }
-
+    .opt.selected3 { border-color: #111; box-shadow: 0 0 0 4px rgba(17,17,17,0.26); background: #d6def2; }
+    .opt.selected4 { border-color: #111; box-shadow: 0 0 0 5px rgba(17,17,17,0.30); background: #c3cfee; }
+    
+    
     /* Totals row */
     .totalsRow {
       display: grid;
@@ -210,7 +207,7 @@
     // Options (order/labels)
     // ---------------------------
     const LEFT_COLUMN = [
-      { id: "fives", label: "Fives", points: 50, mode: "cycle2" },
+      { id: "fives", label: "Fives", points: 50, mode: "cycle4" },
       { id: "t1", label: "Triple 1s", points: 300, mode: "toggle" },
       { id: "t2", label: "Triple 2s", points: 200, mode: "toggle" },
       { id: "t3", label: "Triple 3s", points: 300, mode: "toggle" },
@@ -220,11 +217,11 @@
     ];
 
     const RIGHT_COLUMN = [
-      { id: "ones", label: "Ones", points: 100, mode: "cycle2" },
+      { id: "ones", label: "Ones", points: 100, mode: "cycle4" },
       { id: "4kind", label: "Four-of-a-kind", points: 1000, displayPoints: "1k", mode: "toggle" },
       { id: "5kind", label: "Five-of-a-kind", points: 2000, displayPoints: "2k", mode: "toggle" },
       { id: "6kind", label: "Six-of-a-kind", points: 3000, mode: "toggle" },
-      { id: "3pairs", label: "3 Pair/Straight", points: 1500, displayPoints: "1.5k", mode: "toggle" },
+      { id: "3pairs", label: "3 Pair / Straight", points: 1500, displayPoints: "1.5k", mode: "toggle" },
       { id: "quadpair", label: "Quad + Pair", points: 1500, mode: "toggle" },
       { id: "2trip", label: "Two Triplets", points: 2500, mode: "toggle" },
     ];
@@ -240,7 +237,7 @@
     let currentPlayerIndex = 0;
     let roundTotal = 0;
 
-    // selectionCounts: id -> count (0..4 for cycle2, 0/1 for toggle)
+    // selectionCounts: id -> count (0..2 for cycle2, 0/1 for toggle)
     const selectionCounts = new Map();
 
     // Back/Undo history
@@ -274,20 +271,6 @@
     const backToSetupBtn = document.getElementById("backToSetupBtn");
 
     const scoreboardBody = document.getElementById("scoreboardBody");
-
-    // ---------------------------
-    // Ones/Fives multiplier (x1..x4) + hold behavior
-    // ---------------------------
-    const HOLD_START_DELAY_MS = 250;
-    const HOLD_REPEAT_MS = 150;
-    const MAX_CYCLE_MULTIPLIER = 4;
-
-    function incrementCycle2(optId) {
-      const current = selectionCounts.get(optId) || 0;
-      if (current >= MAX_CYCLE_MULTIPLIER) return;
-      selectionCounts.set(optId, current + 1);
-      updateSelectionsUI();
-    }
 
     // ---------------------------
     // Name capitalization helper
@@ -413,7 +396,7 @@
     function formatOptionHTML(opt, count) {
       const pointsText = opt.displayPoints ?? String(opt.points);
 
-      if (opt.mode === "cycle2") {
+      if (opt.mode === "cycle4") {
         if (count >= 2) return `${opt.label} (${pointsText}) <strong>x${count}</strong>`;
         return `${opt.label} (${pointsText})`;
       }
@@ -424,7 +407,7 @@
       let sum = 0;
       for (const opt of ALL_OPTIONS) {
         const c = selectionCounts.get(opt.id) || 0;
-        if (opt.mode === "cycle2") sum += c * opt.points;
+        if (opt.mode === "cycle4") sum += c * opt.points;
         else sum += (c ? opt.points : 0);
       }
       return sum;
@@ -445,48 +428,12 @@
         const current = selectionCounts.get(opt.id) || 0;
         let next = current;
 
-        if (opt.mode === "cycle2") {
-          // off -> x1 -> x2 -> x3 -> x4 -> off
-          next = (current + 1) % (MAX_CYCLE_MULTIPLIER + 1);
-        } else {
-          next = current ? 0 : 1; // toggle
-        }
+        if (opt.mode === "cycle4") next = (current + 1) % 5; // off -> x1 -> x2 -> x3 -> x4 -> off
+        else next = current ? 0 : 1; // toggle
 
         selectionCounts.set(opt.id, next);
         updateSelectionsUI();
       });
-
-      // Hold to increase (cycle2 only), capped at x4
-      if (opt.mode === "cycle2") {
-        let holdTimer = null;
-        let holdInterval = null;
-
-        const startHold = (e) => {
-          e.preventDefault();
-
-          holdTimer = setTimeout(() => {
-            incrementCycle2(opt.id);
-            holdInterval = setInterval(() => incrementCycle2(opt.id), HOLD_REPEAT_MS);
-          }, HOLD_START_DELAY_MS);
-        };
-
-        const stopHold = () => {
-          if (holdTimer) clearTimeout(holdTimer);
-          if (holdInterval) clearInterval(holdInterval);
-          holdTimer = null;
-          holdInterval = null;
-        };
-
-        btn.addEventListener("touchstart", startHold, { passive: false });
-        btn.addEventListener("touchend", stopHold);
-        btn.addEventListener("touchcancel", stopHold);
-
-        btn.addEventListener("mousedown", startHold);
-        btn.addEventListener("mouseup", stopHold);
-        btn.addEventListener("mouseleave", stopHold);
-
-        btn.addEventListener("contextmenu", (e) => e.preventDefault());
-      }
 
       return btn;
     }
@@ -511,15 +458,16 @@
 
         btn.querySelector(".title").innerHTML = formatOptionHTML(opt, count);
 
-        btn.classList.remove("selected1", "selected2", "selected3", "selected4");
-        if (opt.mode === "cycle2") {
-          if (count === 1) btn.classList.add("selected1");
-          if (count === 2) btn.classList.add("selected2");
-          if (count === 3) btn.classList.add("selected3");
-          if (count === 4) btn.classList.add("selected4");
-        } else {
-          if (count === 1) btn.classList.add("selected1");
-        }
+          btn.classList.remove("selected1", "selected2", "selected3", "selected4");
+
+          if (opt.mode === "cycle4") {
+            if (count === 1) btn.classList.add("selected1");
+            if (count === 2) btn.classList.add("selected2");
+            if (count === 3) btn.classList.add("selected3");
+            if (count === 4) btn.classList.add("selected4");
+          } else {
+            if (count === 1) btn.classList.add("selected1");
+          }
       }
 
       const selectedPoints = getSelectedPoints();
@@ -530,6 +478,7 @@
       const projectedGrand = currentGrand + roundTotal + selectedPoints;
       projectedGrandEl.textContent = String(projectedGrand);
 
+      // Gold background for 10k+ in the "Grand total" box
       grandTotalStatEl.classList.toggle("gold", projectedGrand >= 10000);
 
       nextRollBtn.disabled = selectedPoints <= 0;
@@ -578,12 +527,15 @@
         const total = players[i].total;
         const rank = rankByTotal.get(total) ?? 0;
 
+        // Row gold for 10k+
         tr.classList.toggle("goldRow", total >= 10000);
 
-        const medal = (total > 0 && rank >= 1 && rank <= 3) ? (" " + rankEmoji(rank)) : "";
+        const emoji =
+          total > 0 && rank >= 1 && rank <= 3 ? " " + rankEmoji(rank) : "";
+
         const turnText = i === currentPlayerIndex ? " (turn)" : "";
 
-        tdName.textContent = `${players[i].name}${medal}${turnText}`;
+        tdName.textContent = `${players[i].name}${emoji}${turnText}`;
         tdScore.textContent = String(total);
 
         tr.appendChild(tdName);
