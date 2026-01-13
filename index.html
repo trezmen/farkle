@@ -90,14 +90,18 @@
       border: 1px solid #d7dbe6;
       background: #fff;
       user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
     }
     .opt .title { font-weight: 650; font-size: 15px; }
 
-    /* Highlight states (x1 -> x4 gets progressively stronger) */
-    .opt.selected1 { border-color: #111; box-shadow: 0 0 0 2px rgba(17,17,17,0.16); background: #f3f5fb; }
-    .opt.selected2 { border-color: #111; box-shadow: 0 0 0 3px rgba(17,17,17,0.20); background: #e9edf8; }
-    .opt.selected3 { border-color: #111; box-shadow: 0 0 0 4px rgba(17,17,17,0.24); background: #dde4f6; }
-    .opt.selected4 { border-color: #111; box-shadow: 0 0 0 5px rgba(17,17,17,0.28); background: #cfd9f3; }
+    /* Highlight states (more obvious) */
+    .opt.selected1 { border-color: #111; box-shadow: 0 0 0 2px rgba(17,17,17,0.18); background: #f0f2f7; }
+    .opt.selected2 { border-color: #111; box-shadow: 0 0 0 3px rgba(17,17,17,0.22); background: #e6eaf5; }
+
+    /* Added for x3 / x4 (darker each step) */
+    .opt.selected3 { border-color: #111; box-shadow: 0 0 0 3px rgba(17,17,17,0.24); background: #d6ddf2; }
+    .opt.selected4 { border-color: #111; box-shadow: 0 0 0 4px rgba(17,17,17,0.26); background: #c6d0ee; }
 
     /* Totals row */
     .totalsRow {
@@ -236,7 +240,7 @@
     let currentPlayerIndex = 0;
     let roundTotal = 0;
 
-    // selectionCounts: id -> count (0..2 for cycle2, 0/1 for toggle)
+    // selectionCounts: id -> count (0..4 for cycle2, 0/1 for toggle)
     const selectionCounts = new Map();
 
     // Back/Undo history
@@ -270,6 +274,20 @@
     const backToSetupBtn = document.getElementById("backToSetupBtn");
 
     const scoreboardBody = document.getElementById("scoreboardBody");
+
+    // ---------------------------
+    // Hold behavior for Ones/Fives (x1..x4)
+    // ---------------------------
+    const HOLD_START_DELAY_MS = 250;
+    const HOLD_REPEAT_MS = 150;
+    const MAX_CYCLE_MULTIPLIER = 4;
+
+    function incrementCycle2(optId) {
+      const current = selectionCounts.get(optId) || 0;
+      if (current >= MAX_CYCLE_MULTIPLIER) return;
+      selectionCounts.set(optId, current + 1);
+      updateSelectionsUI();
+    }
 
     // ---------------------------
     // Name capitalization helper
@@ -396,11 +414,9 @@
       const pointsText = opt.displayPoints ?? String(opt.points);
 
       if (opt.mode === "cycle2") {
-        // For Ones/Fives: show x2..x4, and bold the multiplier
         if (count >= 2) return `${opt.label} (${pointsText}) <strong>x${count}</strong>`;
         return `${opt.label} (${pointsText})`;
       }
-      
       return `${opt.label} (${pointsText})`;
     }
 
@@ -415,7 +431,6 @@
     }
 
     function renderOptionButton(opt) {
-    function renderOptionButton(opt) {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "opt";
@@ -426,47 +441,32 @@
       title.innerHTML = formatOptionHTML(opt, 0);
       btn.appendChild(title);
 
-      // Hold settings
-      const HOLD_START_DELAY_MS = 300;
-      const HOLD_REPEAT_MS = 200;
-      const MAX_X = 4;
-
-      function cycle2Increment() {
-        const current = selectionCounts.get(opt.id) || 0;
-        const next = current >= MAX_X ? 0 : current + 1; // 0 -> 1 -> 2 -> 3 -> 4 -> 0
-        selectionCounts.set(opt.id, next);
-        updateSelectionsUI();
-      }
-
       btn.addEventListener("click", () => {
         const current = selectionCounts.get(opt.id) || 0;
+        let next = current;
 
         if (opt.mode === "cycle2") {
-          // Click cycles 0 -> 1 -> 2 -> 3 -> 4 -> 0
-          const next = current >= MAX_X ? 0 : current + 1;
-          selectionCounts.set(opt.id, next);
-          updateSelectionsUI();
-          return;
+          // off -> x1 -> x2 -> x3 -> x4 -> off
+          next = (current + 1) % (MAX_CYCLE_MULTIPLIER + 1);
+        } else {
+          next = current ? 0 : 1; // toggle
         }
 
-        // Toggle options unchanged
-        selectionCounts.set(opt.id, current ? 0 : 1);
+        selectionCounts.set(opt.id, next);
         updateSelectionsUI();
       });
 
-      // Press-and-hold for cycle2 only (Ones/Fives)
+      // Hold to increase (cycle2 only), capped at x4
       if (opt.mode === "cycle2") {
         let holdTimer = null;
         let holdInterval = null;
 
         const startHold = (e) => {
-          // Prevent iOS long-press callout/select behavior
           e.preventDefault();
 
-          // Start repeating after delay
           holdTimer = setTimeout(() => {
-            cycle2Increment();
-            holdInterval = setInterval(cycle2Increment, HOLD_REPEAT_MS);
+            incrementCycle2(opt.id);
+            holdInterval = setInterval(() => incrementCycle2(opt.id), HOLD_REPEAT_MS);
           }, HOLD_START_DELAY_MS);
         };
 
@@ -477,20 +477,19 @@
           holdInterval = null;
         };
 
-        // Touch (phones)
         btn.addEventListener("touchstart", startHold, { passive: false });
         btn.addEventListener("touchend", stopHold);
         btn.addEventListener("touchcancel", stopHold);
 
-        // Mouse (desktop testing)
         btn.addEventListener("mousedown", startHold);
         btn.addEventListener("mouseup", stopHold);
         btn.addEventListener("mouseleave", stopHold);
+
+        btn.addEventListener("contextmenu", (e) => e.preventDefault());
       }
 
       return btn;
     }
-
 
     function renderOptions() {
       leftOptionsEl.innerHTML = "";
@@ -513,7 +512,6 @@
         btn.querySelector(".title").innerHTML = formatOptionHTML(opt, count);
 
         btn.classList.remove("selected1", "selected2", "selected3", "selected4");
-
         if (opt.mode === "cycle2") {
           if (count === 1) btn.classList.add("selected1");
           if (count === 2) btn.classList.add("selected2");
