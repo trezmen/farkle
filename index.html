@@ -276,7 +276,7 @@
     const scoreboardBody = document.getElementById("scoreboardBody");
 
     // ---------------------------
-    // Hold behavior for Ones/Fives (x1..x4)
+    // Ones/Fives multiplier (x1..x4) + hold behavior
     // ---------------------------
     const HOLD_START_DELAY_MS = 250;
     const HOLD_REPEAT_MS = 150;
@@ -530,7 +530,6 @@
       const projectedGrand = currentGrand + roundTotal + selectedPoints;
       projectedGrandEl.textContent = String(projectedGrand);
 
-      // Gold background for 10k+ in the "Grand total" box
       grandTotalStatEl.classList.toggle("gold", projectedGrand >= 10000);
 
       nextRollBtn.disabled = selectedPoints <= 0;
@@ -579,15 +578,12 @@
         const total = players[i].total;
         const rank = rankByTotal.get(total) ?? 0;
 
-        // Row gold for 10k+
         tr.classList.toggle("goldRow", total >= 10000);
 
-        const emoji =
-          total > 0 && rank >= 1 && rank <= 3 ? " " + rankEmoji(rank) : "";
-
+        const medal = (total > 0 && rank >= 1 && rank <= 3) ? (" " + rankEmoji(rank)) : "";
         const turnText = i === currentPlayerIndex ? " (turn)" : "";
 
-        tdName.textContent = `${players[i].name}${emoji}${turnText}`;
+        tdName.textContent = `${players[i].name}${medal}${turnText}`;
         tdScore.textContent = String(total);
 
         tr.appendChild(tdName);
